@@ -179,6 +179,20 @@ bool create_cmakelists_file(const char* project_name) {
 }
 
 bool create_ps1_files(const char* project_name) {
+    // Check if files already exist
+    if (file_exists("build.ps1")) {
+        fprintf(stderr, "Error: build.ps1 already exists\n");
+        return true;
+    }
+    if (file_exists("run.ps1")) {
+        fprintf(stderr, "Error: run.ps1 already exists\n");
+        return true;
+    }
+    if (file_exists("clean.ps1")) {
+        fprintf(stderr, "Error: clean.ps1 already exists\n");
+        return true;
+    }
+
     // Create build.ps1
     FILE* file1 = fopen("build.ps1", "w");
     if (file1 == NULL) {
@@ -278,6 +292,20 @@ bool create_ps1_files(const char* project_name) {
 }
 
 bool create_bat_files(const char* project_name) {
+    // Check if files already exist
+    if (file_exists("build.bat")) {
+        fprintf(stderr, "Error: build.bat already exists\n");
+        return true;
+    }
+    if (file_exists("run.bat")) {
+        fprintf(stderr, "Error: run.bat already exists\n");
+        return true;
+    }
+    if (file_exists("clean.bat")) {
+        fprintf(stderr, "Error: clean.bat already exists\n");
+        return true;
+    }
+
     // Create build.bat
     FILE* file1 = fopen("build.bat", "w");
     if (file1 == NULL) {
