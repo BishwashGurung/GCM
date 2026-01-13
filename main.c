@@ -156,15 +156,18 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "# Compiler warnings\n");
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "if(MSVC)\n");
+    fprintf(file, "\ttarget_compile_options(%s PRIVATE /W4)\n\n", project_name);
+    fprintf(file, "\tif (CMAKE_CXX_COMPILER)\n");
+    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE\n", project_name);
     fprintf(file,
-            "\ttarget_compile_options(%s PRIVATE /W4 /permissive- "
-            "/Zc:__cplusplus)\n",
-            project_name);
+            "\t\t\t/permissive- \n\t\t\t/Zc:__cplusplus\n\t\t)\n\tendif()\n");
     fprintf(file, "else()\n");
-    fprintf(file,
-            "\ttarget_compile_options(%s PRIVATE -Wall -Wextra -Wpedantic "
-            "-Wshadow)\n",
+    fprintf(file, "\ttarget_compile_options(%s PRIVATE\n", project_name);
+    fprintf(file, "\t\t-Wall\n\t\t-Wextra\n\t\t-Wpedantic\n\t)\n\n");
+    fprintf(file, "\tif (CMAKE_CXX_COMPILER)\n");
+    fprintf(file, "\t\ttraget_compile_options(%s PRIVATE -Wshadow)\n",
             project_name);
+    fprintf(file, "\tendif()\n");
     fprintf(file, "endif()\n\n");
 
     fprintf(file, "# --------------------------------------\n");
@@ -200,7 +203,9 @@ bool create_ps1_files(const char* project_name) {
         return true;
     }
 
-    fprintf(file1, "param([string]$compiler = \"gcc\")\n\n");
+    fprintf(file1, "param(\n");
+    fprintf(file1, "\t[ValidateSet(\"gcc\", \"clang\", \"clang-cl\")]\n");
+    fprintf(file1, "\t[string]$compiler = \"gcc\"\n)\n\n");
     fprintf(file1, "$exeDir = \"build\"\n");
     fprintf(file1, "$exePath = Join-Path $exeDir \"%s.exe\"\n\n", project_name);
     fprintf(
@@ -208,14 +213,18 @@ bool create_ps1_files(const char* project_name) {
         "Write-Host \"Building with $compiler...\" -ForegroundColor Cyan\n\n");
     fprintf(file1, "try {\n");
     fprintf(file1, "\tif ($compiler -eq \"clang\") {\n");
-    fprintf(file1,
-            "\t\tcmake -S . -B $exeDir -G Ninja -DCMAKE_C_COMPILER=clang "
-            "-DCMAKE_CXX_COMPILER=clang++\n");
+    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=clang `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=clang++\n\t}\n");
+    fprintf(file1, "\telseif ($compiler -eq \"clang-cl\") {\n");
+    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=clang-cl `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=clang-cl `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_LINKER=link\n");
     fprintf(file1, "\t} else {\n");
-    fprintf(file1,
-            "\t\tcmake -S . -B $exeDir -G Ninja -DCMAKE_C_COMPILER=gcc "
-            "-DCMAKE_CXX_COMPILER=g++\n");
-    fprintf(file1, "\t}\n\n");
+    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=gcc `\n");
+    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=g++\n\t}\n\n");
     fprintf(file1,
             "\tif ($LASTEXITCODE -ne 0) { throw \"CMake configuration failed\" "
             "}\n\n");
@@ -244,7 +253,9 @@ bool create_ps1_files(const char* project_name) {
         return true;
     }
 
-    fprintf(file2, "param([string]$compiler = \"gcc\")\n\n");
+    fprintf(file2, "param(\n");
+    fprintf(file2, "\t[ValidateSet(\"gcc\", \"clang\", \"clang-cl\")]\n");
+    fprintf(file2, "\t[string]$compiler = \"gcc\"\n)\n\n");
     fprintf(file2, "$exePath = Join-Path \"build\" \"%s.exe\"\n\n",
             project_name);
     fprintf(file2, "if (-Not (Test-Path $exePath)) {\n");
@@ -314,17 +325,22 @@ bool create_bat_files(const char* project_name) {
     }
 
     fprintf(file1, "@echo off\n");
-    fprintf(file1, "setlocal\n\n");
+    fprintf(file1, "setlocal enabledelayedexpansion\n\n");
+    fprintf(file1, "REM Default\n");
     fprintf(file1, "set COMPILER=gcc\n");
-    fprintf(file1, "set CXX_COMPILER=g++\n");
+    fprintf(file1, "set CXX_COMPILER=g++\n\n");
+    fprintf(file1, "REM Parse argument\n");
     fprintf(file1, "if \"%%1\"==\"clang\" (\n");
     fprintf(file1, "\tset COMPILER=clang\n");
     fprintf(file1, "\tset CXX_COMPILER=clang++\n");
+    fprintf(file1, ") else if \"%%1\"==\"clang-cl\" (\n");
+    fprintf(file1, "\tset COMPILER=clang-cl\n");
+    fprintf(file1, "\tset CXX_COMPILER=clang-cl\n");
     fprintf(file1, ")\n\n");
     fprintf(file1, "echo Building with %%COMPILER%%...\n");
     fprintf(file1,
             "cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=%%COMPILER%% "
-            "-DCMAKE_CXX_COMPILER=%%CXX_COMPILER%%\n");
+            "-DCMAKE_CXX_COMPILER=%%CXX_COMPILER%%\n\n");
     fprintf(file1, "if errorlevel 1 (\n");
     fprintf(file1, "\techo CMake configuration failed!\n");
     fprintf(file1, "\texit /b 1\n");
@@ -352,8 +368,10 @@ bool create_bat_files(const char* project_name) {
 
     fprintf(file2, "@echo off\n");
     fprintf(file2, "setlocal\n\n");
+    fprintf(file2, "REM Default\n");
     fprintf(file2, "set COMPILER=gcc\n");
-    fprintf(file2, "if \"%%1\"==\"clang\" set COMPILER=clang\n\n");
+    fprintf(file2, "if \"%%1\"==\"clang\" set COMPILER=clang\n");
+    fprintf(file2, "if \"%%1\"==\"clang-cl\" set COMPILER=clang-cl\n\n");
     fprintf(file2, "if not exist build\\%s.exe (\n", project_name);
     fprintf(file2, "\techo Building...\n");
     fprintf(file2, "\tcall build.bat %%COMPILER%%\n");
