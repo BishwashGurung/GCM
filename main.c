@@ -34,6 +34,16 @@ bool create_cmakepresets_file(void);
 void print_help(const char* program_name);
 
 int main(int argc, const char* argv[]) {
+    if (argc >= 2) {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+            print_help(argv[0]);
+            return 0;
+        } else {
+            fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[1]);
+            print_help(argv[0]);
+            return 1;
+        }
+    }
     char cwd[MAX_PATH_LEN];
     char project_name_buf[MAX_PROJECT_NAME];
 
@@ -57,9 +67,9 @@ int main(int argc, const char* argv[]) {
     const char* project_name = project_name_buf;
 
     if (file_exists("CMakeLists.txt")) {
-        fprintf(
-            stderr,
-            "Error: CMakeLists.txt already exists in the current directory\n");
+        fprintf(stderr,
+                "Error: CMakeLists.txt already exists in the current "
+                "directory\n");
         return 1;
     }
 
@@ -107,7 +117,7 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "# C Standard\n");
     fprintf(file, "# --------------------------------------\n");
-    fprintf(file, "set(CMAKE_C_STANDARD 17)\n");
+    fprintf(file, "set(CMAKE_C_STANDARD 23)\n");
     fprintf(file, "set(CMAKE_C_STANDARD_REQUIRED ON)\n\n");
 
     fprintf(file, "# --------------------------------------\n");
@@ -132,8 +142,8 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "\t\"${PROJECT_SOURCE_DIR}/include\"\n");
     fprintf(file, "\t\"${PROJECT_SOURCE_DIR}/external/include\"\n)\n\n");
 
-    fprintf(file,
-            "link_directories(\"${PROJECT_SOURCE_DIR}/external/lib\")\n\n");
+    fprintf(file, "target_link_directories(%s PRIVATE\n", project_name);
+    fprintf(file, "\t\"${PROJECT_SOURCE_DIR}/external/lib\"\n)\n\n");
 
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "# Compiler warnings\n");
@@ -148,7 +158,7 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "\ttarget_compile_options(%s PRIVATE\n", project_name);
     fprintf(file, "\t\t-Wall\n\t\t-Wextra\n\t\t-Wpedantic\n\t)\n\n");
     fprintf(file, "\tif (CMAKE_CXX_COMPILER)\n");
-    fprintf(file, "\t\ttraget_compile_options(%s PRIVATE -Wshadow)\n",
+    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE -Wshadow)\n",
             project_name);
     fprintf(file, "\tendif()\n");
     fprintf(file, "endif()\n\n");
