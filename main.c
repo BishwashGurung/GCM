@@ -30,8 +30,7 @@
 // clang-format on
 
 bool create_cmakelists_file(const char* project_name);
-bool create_ps1_files(const char* project_name);
-bool create_bat_files(const char* project_name);
+bool create_cmakepresets_file(void);
 void print_help(const char* program_name);
 
 int main(int argc, const char* argv[]) {
@@ -57,31 +56,6 @@ int main(int argc, const char* argv[]) {
     }
     const char* project_name = project_name_buf;
 
-    // Handle command line arguments
-    bool has_error = false;
-    if (argc >= 2) {
-        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
-            print_help(argv[0]);
-            return 0;
-        } else if (strcmp(argv[1], "both") == 0) {
-            bool ps1_error = create_ps1_files(project_name);
-            bool bat_error = create_bat_files(project_name);
-            has_error = ps1_error || bat_error;
-        } else if (strcmp(argv[1], "bat") == 0) {
-            has_error = create_bat_files(project_name);
-        } else {
-            fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[1]);
-            print_help(argv[0]);
-            return 1;
-        }
-    } else {
-        has_error = create_ps1_files(project_name);
-    }
-
-    if (has_error) {
-        return 1;
-    }
-
     if (file_exists("CMakeLists.txt")) {
         fprintf(
             stderr,
@@ -93,16 +67,25 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
+    if (file_exists("CMakePresets.json")) {
+        fprintf(stderr,
+                "Error: CMakePresets.json already exists in the current "
+                "directory\n");
+        return 1;
+    }
+
+    if (create_cmakepresets_file()) {
+        return 1;
+    }
+
     return 0;
 }
 
 void print_help(const char* program_name) {
     printf("Usage: %s [OPTION]\n", program_name);
-    printf("Generate CMakeLists.txt and build scripts for a C/C++ project\n\n");
-    printf("Options:\n");
-    printf("  (no args)     Create PowerShell scripts only (.ps1)\n");
-    printf("  both          Create both PowerShell and Batch scripts\n");
-    printf("  bat           Create Batch scripts only (.bat)\n");
+    printf(
+        "Generate CMakeLists.txt and CMakePresets.json for a C/C++ "
+        "project\n\n");
     printf("  -h, --help    Display this help message\n");
 }
 
@@ -113,7 +96,7 @@ bool create_cmakelists_file(const char* project_name) {
         return true;
     }
 
-    fprintf(file, "cmake_minimum_required(VERSION 3.20)\n\n");
+    fprintf(file, "cmake_minimum_required(VERSION 3.25)\n\n");
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "# Project\n");
     fprintf(file, "# --------------------------------------\n");
@@ -181,223 +164,139 @@ bool create_cmakelists_file(const char* project_name) {
     return false;
 }
 
-bool create_ps1_files(const char* project_name) {
-    // Check if files already exist
-    if (file_exists("build.ps1")) {
-        fprintf(stderr, "Error: build.ps1 already exists\n");
-        return true;
-    }
-    if (file_exists("run.ps1")) {
-        fprintf(stderr, "Error: run.ps1 already exists\n");
-        return true;
-    }
-    if (file_exists("clean.ps1")) {
-        fprintf(stderr, "Error: clean.ps1 already exists\n");
+bool create_cmakepresets_file(void) {
+    FILE* file = fopen("CMakePresets.json", "w");
+    if (!file) {
+        fprintf(stderr, "Error: Failed to create CMakePresets.json\n");
         return true;
     }
 
-    // Create build.ps1
-    FILE* file1 = fopen("build.ps1", "w");
-    if (file1 == NULL) {
-        fprintf(stderr, "Error: Failed to create build.ps1\n");
-        return true;
-    }
+    fprintf(file,
+            "{\n"
+            "\t\"version\": 6,\n"
+            "\t\"cmakeMinimumRequired\": {\n"
+            "\t\t\"major\": 3,\n"
+            "\t\t\"minor\": 25,\n"
+            "\t\t\"patch\": 0\n"
+            "\t},\n\n"
 
-    fprintf(file1, "param(\n");
-    fprintf(file1, "\t[ValidateSet(\"gcc\", \"clang\", \"clang-cl\")]\n");
-    fprintf(file1, "\t[string]$compiler = \"gcc\"\n)\n\n");
-    fprintf(file1, "$exeDir = \"build\"\n");
-    fprintf(file1, "$exePath = Join-Path $exeDir \"%s.exe\"\n\n", project_name);
-    fprintf(
-        file1,
-        "Write-Host \"Building with $compiler...\" -ForegroundColor Cyan\n\n");
-    fprintf(file1, "try {\n");
-    fprintf(file1, "\tif ($compiler -eq \"clang\") {\n");
-    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=clang `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=clang++\n\t}\n");
-    fprintf(file1, "\telseif ($compiler -eq \"clang-cl\") {\n");
-    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=clang-cl `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=clang-cl `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_LINKER=link\n");
-    fprintf(file1, "\t} else {\n");
-    fprintf(file1, "\t\tcmake -S . -B $exeDir -G Ninja `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_C_COMPILER=gcc `\n");
-    fprintf(file1, "\t\t\t-DCMAKE_CXX_COMPILER=g++\n\t}\n\n");
-    fprintf(file1,
-            "\tif ($LASTEXITCODE -ne 0) { throw \"CMake configuration failed\" "
-            "}\n\n");
-    fprintf(file1, "\tcmake --build $exeDir\n");
-    fprintf(file1, "\tif ($LASTEXITCODE -ne 0) { throw \"Build failed\" }\n");
-    fprintf(file1, "}\n");
-    fprintf(file1, "catch {\n");
-    fprintf(file1, "\tWrite-Host \"Build failed: $_\" -ForegroundColor Red\n");
-    fprintf(file1, "\texit 1\n");
-    fprintf(file1, "}\n\n");
-    fprintf(file1, "if (-Not (Test-Path $exePath)) {\n");
-    fprintf(file1,
-            "\tWrite-Host \"Build finished but %s.exe not found!\" "
-            "-ForegroundColor Red\n",
-            project_name);
-    fprintf(file1, "\texit 1\n");
-    fprintf(file1, "}\n\n");
-    fprintf(file1, "Write-Host \"Build succeeded!\" -ForegroundColor Green\n");
-    fclose(file1);
-    printf("Created: build.ps1\n");
+            "\t\"configurePresets\": [\n"
+            "\t\t{\n"
+            "\t\t\t\"name\": \"base\",\n"
+            "\t\t\t\"hidden\": true,\n"
+            "\t\t\t\"generator\": \"Ninja\",\n"
+            "\t\t\t\"binaryDir\": \"${sourceDir}/build/${presetName}\",\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_EXPORT_COMPILE_COMMANDS\": true\n"
+            "\t\t\t}\n"
+            "\t\t},\n\n"
 
-    // Create run.ps1
-    FILE* file2 = fopen("run.ps1", "w");
-    if (file2 == NULL) {
-        fprintf(stderr, "Error: Failed to create run.ps1\n");
-        return true;
-    }
+            "\t\t{\n"
+            "\t\t\t\"name\": \"win-gcc-debug\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Windows\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Debug\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"gcc\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"g++\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n"
+            "\t\t{\n"
+            "\t\t\t\"name\": \"win-gcc-release\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Windows\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Release\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"gcc\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"g++\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n\n"
 
-    fprintf(file2, "param(\n");
-    fprintf(file2, "\t[ValidateSet(\"gcc\", \"clang\", \"clang-cl\")]\n");
-    fprintf(file2, "\t[string]$compiler = \"gcc\"\n)\n\n");
-    fprintf(file2, "$exePath = Join-Path \"build\" \"%s.exe\"\n\n",
-            project_name);
-    fprintf(file2, "if (-Not (Test-Path $exePath)) {\n");
-    fprintf(file2, "\tWrite-Host \"Building...\" -ForegroundColor Yellow\n");
-    fprintf(file2, "\t& ./build.ps1 -compiler $compiler\n");
-    fprintf(file2, "}\n\n");
-    fprintf(file2, "if (-Not (Test-Path $exePath)) {\n");
-    fprintf(file2,
-            "\tWrite-Host \"Cannot run: executable not found!\" "
-            "-ForegroundColor Red\n");
-    fprintf(file2, "\texit 1\n");
-    fprintf(file2, "}\n\n");
-    fprintf(file2, "Write-Host \"Running %s...\" -ForegroundColor Cyan\n",
-            project_name);
-    fprintf(file2, "try {\n");
-    fprintf(file2, "\t& $exePath\n");
-    fprintf(file2, "}\n");
-    fprintf(file2, "catch {\n");
-    fprintf(
-        file2,
-        "\tWrite-Host \"Error during execution: $_\" -ForegroundColor Red\n");
-    fprintf(file2, "\texit 1\n");
-    fprintf(file2, "}\n");
-    fclose(file2);
-    printf("Created: run.ps1\n");
+            "\t\t{\n"
+            "\t\t\t\"name\": \"win-clang-cl-debug\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Windows\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Debug\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"clang-cl\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"clang-cl\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n"
+            "\t\t{\n"
+            "\t\t\t\"name\": \"win-clang-cl-release\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Windows\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Release\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"clang-cl\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"clang-cl\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n\n"
 
-    // Create clean.ps1
-    FILE* file3 = fopen("clean.ps1", "w");
-    if (file3 == NULL) {
-        fprintf(stderr, "Error: Failed to create clean.ps1\n");
-        return true;
-    }
+            "\t\t{\n"
+            "\t\t\t\"name\": \"linux-clang-debug\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Linux\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Debug\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"clang\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"clang++\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n"
+            "\t\t{\n"
+            "\t\t\t\"name\": \"linux-clang-release\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Linux\" },\n"
+            "\t\t\t\"cacheVariables\": {\n"
+            "\t\t\t\t\"CMAKE_BUILD_TYPE\": \"Release\",\n"
+            "\t\t\t\t\"CMAKE_C_COMPILER\": \"clang\",\n"
+            "\t\t\t\t\"CMAKE_CXX_COMPILER\": \"clang++\"\n"
+            "\t\t\t}\n"
+            "\t\t},\n\n"
 
-    fprintf(
-        file3,
-        "Write-Host \"Cleaning build directory...\" -ForegroundColor Yellow\n");
-    fprintf(file3,
-            "Remove-Item -Path build -Recurse -Force -ErrorAction "
-            "SilentlyContinue\n");
-    fprintf(file3, "Write-Host \"Done!\" -ForegroundColor Green\n");
-    fclose(file3);
-    printf("Created: clean.ps1\n");
+            "\t\t{\n"
+            "\t\t\t\"name\": \"macos-clang-debug\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Darwin\" },\n"
+            "\t\t\t\"cacheVariables\": { \"CMAKE_BUILD_TYPE\": \"Debug\" }\n"
+            "\t\t},\n"
+            "\t\t{\n"
+            "\t\t\t\"name\": \"macos-clang-release\",\n"
+            "\t\t\t\"inherits\": \"base\",\n"
+            "\t\t\t\"condition\": { \"type\": \"equals\", \"lhs\": "
+            "\"${hostSystemName}\", \"rhs\": \"Darwin\" },\n"
+            "\t\t\t\"cacheVariables\": { \"CMAKE_BUILD_TYPE\": \"Release\" }\n"
+            "\t\t}\n"
+            "\t],\n\n"
 
-    return false;
-}
+            "\t\"buildPresets\": [\n"
+            "\t\t{ \"name\": \"win-gcc-debug\", \"configurePreset\": "
+            "\"win-gcc-debug\" },\n"
+            "\t\t{ \"name\": \"win-gcc-release\", \"configurePreset\": "
+            "\"win-gcc-release\" },\n"
+            "\t\t{ \"name\": \"win-clang-cl-debug\", \"configurePreset\": "
+            "\"win-clang-cl-debug\" },\n"
+            "\t\t{ \"name\": \"win-clang-cl-release\", \"configurePreset\": "
+            "\"win-clang-cl-release\" },\n"
+            "\t\t{ \"name\": \"linux-clang-debug\", \"configurePreset\": "
+            "\"linux-clang-debug\" },\n"
+            "\t\t{ \"name\": \"linux-clang-release\", \"configurePreset\": "
+            "\"linux-clang-release\" },\n"
+            "\t\t{ \"name\": \"macos-clang-debug\", \"configurePreset\": "
+            "\"macos-clang-debug\" },\n"
+            "\t\t{ \"name\": \"macos-clang-release\", \"configurePreset\": "
+            "\"macos-clang-release\" }\n"
+            "\t]\n"
+            "}\n");
 
-bool create_bat_files(const char* project_name) {
-    // Check if files already exist
-    if (file_exists("build.bat")) {
-        fprintf(stderr, "Error: build.bat already exists\n");
-        return true;
-    }
-    if (file_exists("run.bat")) {
-        fprintf(stderr, "Error: run.bat already exists\n");
-        return true;
-    }
-    if (file_exists("clean.bat")) {
-        fprintf(stderr, "Error: clean.bat already exists\n");
-        return true;
-    }
-
-    // Create build.bat
-    FILE* file1 = fopen("build.bat", "w");
-    if (file1 == NULL) {
-        fprintf(stderr, "Error: Failed to create build.bat\n");
-        return true;
-    }
-
-    fprintf(file1, "@echo off\n");
-    fprintf(file1, "setlocal enabledelayedexpansion\n\n");
-    fprintf(file1, "REM Default\n");
-    fprintf(file1, "set COMPILER=gcc\n");
-    fprintf(file1, "set CXX_COMPILER=g++\n\n");
-    fprintf(file1, "REM Parse argument\n");
-    fprintf(file1, "if \"%%1\"==\"clang\" (\n");
-    fprintf(file1, "\tset COMPILER=clang\n");
-    fprintf(file1, "\tset CXX_COMPILER=clang++\n");
-    fprintf(file1, ") else if \"%%1\"==\"clang-cl\" (\n");
-    fprintf(file1, "\tset COMPILER=clang-cl\n");
-    fprintf(file1, "\tset CXX_COMPILER=clang-cl\n");
-    fprintf(file1, ")\n\n");
-    fprintf(file1, "echo Building with %%COMPILER%%...\n");
-    fprintf(file1,
-            "cmake -S . -B build -G Ninja -DCMAKE_C_COMPILER=%%COMPILER%% "
-            "-DCMAKE_CXX_COMPILER=%%CXX_COMPILER%%\n\n");
-    fprintf(file1, "if errorlevel 1 (\n");
-    fprintf(file1, "\techo CMake configuration failed!\n");
-    fprintf(file1, "\texit /b 1\n");
-    fprintf(file1, ")\n\n");
-    fprintf(file1, "cmake --build build\n");
-    fprintf(file1, "if errorlevel 1 (\n");
-    fprintf(file1, "\techo Build failed!\n");
-    fprintf(file1, "\texit /b 1\n");
-    fprintf(file1, ")\n\n");
-    fprintf(file1, "if not exist build\\%s.exe (\n", project_name);
-    fprintf(file1, "\techo Build finished but %s.exe not found!\n",
-            project_name);
-    fprintf(file1, "\texit /b 1\n");
-    fprintf(file1, ")\n\n");
-    fprintf(file1, "echo Build succeeded!\n");
-    fclose(file1);
-    printf("Created: build.bat\n");
-
-    // Create run.bat
-    FILE* file2 = fopen("run.bat", "w");
-    if (file2 == NULL) {
-        fprintf(stderr, "Error: Failed to create run.bat\n");
-        return true;
-    }
-
-    fprintf(file2, "@echo off\n");
-    fprintf(file2, "setlocal\n\n");
-    fprintf(file2, "REM Default\n");
-    fprintf(file2, "set COMPILER=gcc\n");
-    fprintf(file2, "if \"%%1\"==\"clang\" set COMPILER=clang\n");
-    fprintf(file2, "if \"%%1\"==\"clang-cl\" set COMPILER=clang-cl\n\n");
-    fprintf(file2, "if not exist build\\%s.exe (\n", project_name);
-    fprintf(file2, "\techo Building...\n");
-    fprintf(file2, "\tcall build.bat %%COMPILER%%\n");
-    fprintf(file2, ")\n\n");
-    fprintf(file2, "if not exist build\\%s.exe (\n", project_name);
-    fprintf(file2, "\techo Cannot run: executable not found!\n");
-    fprintf(file2, "\texit /b 1\n");
-    fprintf(file2, ")\n\n");
-    fprintf(file2, "echo Running %s...\n", project_name);
-    fprintf(file2, "build\\%s.exe\n", project_name);
-    fclose(file2);
-    printf("Created: run.bat\n");
-
-    // Create clean.bat
-    FILE* file3 = fopen("clean.bat", "w");
-    if (file3 == NULL) {
-        fprintf(stderr, "Error: Failed to create clean.bat\n");
-        return true;
-    }
-
-    fprintf(file3, "@echo off\n");
-    fprintf(file3, "echo Cleaning build directory...\n");
-    fprintf(file3, "if exist build rmdir /s /q build\n");
-    fprintf(file3, "echo Done!\n");
-    fclose(file3);
-    printf("Created: clean.bat\n");
-
+    fclose(file);
+    printf("Created: CMakePresets.json\n");
     return false;
 }
