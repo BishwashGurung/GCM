@@ -106,7 +106,7 @@ bool create_cmakelists_file(const char* project_name) {
         return true;
     }
 
-    fprintf(file, "cmake_minimum_required(VERSION 3.25)\n\n");
+    fprintf(file, "cmake_minimum_required(VERSION 3.30)\n\n");
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "# Project\n");
     fprintf(file, "# --------------------------------------\n");
@@ -164,6 +164,23 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "endif()\n\n");
 
     fprintf(file, "# --------------------------------------\n");
+    fprintf(file, "# Sanitizer (Debug only)\n");
+    fprintf(file, "# --------------------------------------\n");
+    fprintf(file, "if (CMAKE_BUILD_TYPE STREQUAL \"debug\")\n");
+    fprintf(file, "\tif (MSVC)\n");
+    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE /fsanitize=address)\n",
+            project_name);
+    fprintf(file, "\t\ttarget_link_options(%s PRIVATE /fsanitize=address)\n",
+            project_name);
+    fprintf(file, "\telse()\n");
+    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE\n", project_name);
+    fprintf(file, "\t\t\t-fsanitize=address,undefined\n");
+    fprintf(file, "\t\t\t-fno-omit-frame-pointer\n\t\t)\n");
+    fprintf(file, "\t\ttarget_link_options(%s PRIVATE\n", project_name);
+    fprintf(file, "\t\t\t-fsanitize=address\n\t\t)\n");
+    fprintf(file, "\tendif()\nendif()\n\n");
+
+    fprintf(file, "# --------------------------------------\n");
     fprintf(file, "# Install\n");
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "install(TARGETS %s DESTINATION bin)\n", project_name);
@@ -186,7 +203,7 @@ bool create_cmakepresets_file(void) {
             "\t\"version\": 6,\n"
             "\t\"cmakeMinimumRequired\": {\n"
             "\t\t\"major\": 3,\n"
-            "\t\t\"minor\": 25,\n"
+            "\t\t\"minor\": 30,\n"
             "\t\t\"patch\": 0\n"
             "\t},\n\n"
 
