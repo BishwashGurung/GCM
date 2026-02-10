@@ -29,16 +29,21 @@
 #endif
 // clang-format on
 
-bool create_cmakelists_file(const char* project_name);
+bool create_cmakelists_file(const char *project_name);
 bool create_cmakepresets_file(void);
-void print_help(const char* program_name);
+void print_help(const char *program_name);
 
-int main(int argc, const char* argv[]) {
-    if (argc >= 2) {
-        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+int main(int argc, const char *argv[])
+{
+    if (argc >= 2)
+    {
+        if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)
+        {
             print_help(argv[0]);
             return 0;
-        } else {
+        }
+        else
+        {
             fprintf(stderr, "Error: Unknown option '%s'\n\n", argv[1]);
             print_help(argv[0]);
             return 1;
@@ -47,61 +52,70 @@ int main(int argc, const char* argv[]) {
     char cwd[MAX_PATH_LEN];
     char project_name_buf[MAX_PROJECT_NAME];
 
-    if (!get_cwd(cwd, sizeof(cwd))) {
+    if (!get_cwd(cwd, sizeof(cwd)))
+    {
         fprintf(stderr, "Error: Failed to get current working directory\n");
         return 1;
     }
 
     // Extract and sanitize project name
-    const char* temp = strrchr(cwd, PATH_SEP);
-    const char* project_name_src = temp ? temp + 1 : cwd;
+    const char *temp = strrchr(cwd, PATH_SEP);
+    const char *project_name_src = temp ? temp + 1 : cwd;
     strncpy(project_name_buf, project_name_src, sizeof(project_name_buf) - 1);
     project_name_buf[sizeof(project_name_buf) - 1] = '\0';
 
     // Replace spaces with underscores
-    for (char* p = project_name_buf; *p; ++p) {
-        if (*p == ' ') {
+    for (char *p = project_name_buf; *p; ++p)
+    {
+        if (*p == ' ')
+        {
             *p = '_';
         }
     }
-    const char* project_name = project_name_buf;
+    const char *project_name = project_name_buf;
 
-    if (file_exists("CMakeLists.txt")) {
+    if (file_exists("CMakeLists.txt"))
+    {
         fprintf(stderr,
                 "Error: CMakeLists.txt already exists in the current "
                 "directory\n");
         return 1;
     }
 
-    if (create_cmakelists_file(project_name)) {
+    if (create_cmakelists_file(project_name))
+    {
         return 1;
     }
 
-    if (file_exists("CMakePresets.json")) {
+    if (file_exists("CMakePresets.json"))
+    {
         fprintf(stderr,
                 "Error: CMakePresets.json already exists in the current "
                 "directory\n");
         return 1;
     }
 
-    if (create_cmakepresets_file()) {
+    if (create_cmakepresets_file())
+    {
         return 1;
     }
 
     return 0;
 }
 
-void print_help(const char* program_name) {
+void print_help(const char *program_name)
+{
     printf("Usage: %s [OPTION]\n", program_name);
-    printf(
-        "Generate CMakeLists.txt and CMakePresets.json for a C/C++ "
-        "project\n\n");
+    printf("Generate CMakeLists.txt and CMakePresets.json for a C/C++ "
+           "project\n\n");
     printf("  -h, --help    Display this help message\n");
 }
 
-bool create_cmakelists_file(const char* project_name) {
-    FILE* file = fopen("CMakeLists.txt", "w");
-    if (file == NULL) {
+bool create_cmakelists_file(const char *project_name)
+{
+    FILE *file = fopen("CMakeLists.txt", "w");
+    if (file == NULL)
+    {
         fprintf(stderr, "Error: Failed to create CMakeLists.txt\n");
         return true;
     }
@@ -158,7 +172,8 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "\ttarget_compile_options(%s PRIVATE\n", project_name);
     fprintf(file, "\t\t-Wall\n\t\t-Wextra\n\t\t-Wpedantic\n\t)\n\n");
     fprintf(file, "\tif (CMAKE_CXX_COMPILER)\n");
-    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE -Wshadow)\n",
+    fprintf(file,
+            "\t\ttarget_compile_options(%s PRIVATE -Wshadow)\n",
             project_name);
     fprintf(file, "\tendif()\n");
     fprintf(file, "endif()\n\n");
@@ -168,9 +183,11 @@ bool create_cmakelists_file(const char* project_name) {
     fprintf(file, "# --------------------------------------\n");
     fprintf(file, "if (CMAKE_BUILD_TYPE STREQUAL \"debug\")\n");
     fprintf(file, "\tif (MSVC)\n");
-    fprintf(file, "\t\ttarget_compile_options(%s PRIVATE /fsanitize=address)\n",
+    fprintf(file,
+            "\t\ttarget_compile_options(%s PRIVATE /fsanitize=address)\n",
             project_name);
-    fprintf(file, "\t\ttarget_link_options(%s PRIVATE /fsanitize=address)\n",
+    fprintf(file,
+            "\t\ttarget_link_options(%s PRIVATE /fsanitize=address)\n",
             project_name);
     fprintf(file, "\telse()\n");
     fprintf(file, "\t\ttarget_compile_options(%s PRIVATE\n", project_name);
@@ -191,9 +208,11 @@ bool create_cmakelists_file(const char* project_name) {
     return false;
 }
 
-bool create_cmakepresets_file(void) {
-    FILE* file = fopen("CMakePresets.json", "w");
-    if (!file) {
+bool create_cmakepresets_file(void)
+{
+    FILE *file = fopen("CMakePresets.json", "w");
+    if (!file)
+    {
         fprintf(stderr, "Error: Failed to create CMakePresets.json\n");
         return true;
     }
