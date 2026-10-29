@@ -29,11 +29,11 @@
 #endif
 // clang-format on
 
-bool create_cmakelists_file(const char *project_name);
+bool create_cmakelists_file(const char* project_name);
 bool create_cmakepresets_file(void);
-void print_help(const char *program_name);
+void print_help(const char* program_name);
 
-int main(int argc, const char *argv[])
+int main(int argc, const char* argv[])
 {
     if (argc >= 2)
     {
@@ -59,20 +59,20 @@ int main(int argc, const char *argv[])
     }
 
     // Extract and sanitize project name
-    const char *temp = strrchr(cwd, PATH_SEP);
-    const char *project_name_src = temp ? temp + 1 : cwd;
+    const char* temp = strrchr(cwd, PATH_SEP);
+    const char* project_name_src = temp ? temp + 1 : cwd;
     strncpy(project_name_buf, project_name_src, sizeof(project_name_buf) - 1);
     project_name_buf[sizeof(project_name_buf) - 1] = '\0';
 
     // Replace spaces with underscores
-    for (char *p = project_name_buf; *p; ++p)
+    for (char* p = project_name_buf; *p; ++p)
     {
         if (*p == ' ')
         {
             *p = '_';
         }
     }
-    const char *project_name = project_name_buf;
+    const char* project_name = project_name_buf;
 
     if (file_exists("CMakeLists.txt"))
     {
@@ -103,7 +103,7 @@ int main(int argc, const char *argv[])
     return 0;
 }
 
-void print_help(const char *program_name)
+void print_help(const char* program_name)
 {
     printf("Usage: %s [OPTION]\n", program_name);
     printf("Generate CMakeLists.txt and CMakePresets.json for a C/C++ "
@@ -111,9 +111,9 @@ void print_help(const char *program_name)
     printf("  -h, --help    Display this help message\n");
 }
 
-bool create_cmakelists_file(const char *project_name)
+bool create_cmakelists_file(const char* project_name)
 {
-    FILE *file = fopen("CMakeLists.txt", "w");
+    FILE* file = fopen("CMakeLists.txt", "w");
     if (file == NULL)
     {
         fprintf(stderr, "Error: Failed to create CMakeLists.txt\n");
@@ -210,7 +210,7 @@ bool create_cmakelists_file(const char *project_name)
 
 bool create_cmakepresets_file(void)
 {
-    FILE *file = fopen("CMakePresets.json", "w");
+    FILE* file = fopen("CMakePresets.json", "w");
     if (!file)
     {
         fprintf(stderr, "Error: Failed to create CMakePresets.json\n");
